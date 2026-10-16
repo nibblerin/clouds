@@ -1,0 +1,17 @@
+services:
+  airflow:
+    build: .
+    user: "${AIRFLOW_UID:-50000}:0"
+    command: standalone
+    ports:
+      - "8080:8080"
+    env_file: .env
+    environment:
+      PYTHONPATH: /opt/airflow/dags
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      GOOGLE_APPLICATION_CREDENTIALS: /home/airflow/.config/gcloud/application_default_credentials.json
+      AIRFLOW_CONN_GOOGLE_CLOUD_DEFAULT: "google-cloud-platform://?project=${GCP_PROJECT_ID}"
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - ./logs:/opt/airflow/logs
+      - ${HOME}/.config/gcloud:/home/airflow/.config/gcloud:ro

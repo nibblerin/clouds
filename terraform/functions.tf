@@ -1,24 +1,24 @@
 data "archive_file" "function_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/../function"
+  type = "zip"
+  source_dir = "${path.module}/../function"
   output_path = "${path.module}/build/function.zip"
 }
 
 resource "google_storage_bucket_object" "function_zip" {
-  name   = "ingest/${data.archive_file.function_zip.output_md5}.zip"
+  name = "ingest/${data.archive_file.function_zip.output_md5}.zip"
   bucket = google_storage_bucket.function_source.name
   source = data.archive_file.function_zip.output_path
 }
 
 resource "google_cloudfunctions2_function" "ingest" {
-  name        = "${local.base}-ingest"
-  location    = var.region
+  name = "${local.base}-ingest"
+  location = var.region
   description = "Fetches realtime weather from Tomorrow.io and stores raw JSON in GCS (bronze)"
-  labels      = local.labels
+  labels = local.labels
 
   build_config {
-    runtime         = "python314"
-    entry_point     = "fetch_weather"
+    runtime = "python314"
+    entry_point = "fetch_weather"
     service_account = google_service_account.build.id
 
     source {
@@ -30,18 +30,18 @@ resource "google_cloudfunctions2_function" "ingest" {
   }
 
   service_config {
-    available_memory      = "256M"
-    timeout_seconds       = 60
-    min_instance_count    = 0
-    max_instance_count    = 2
-    ingress_settings      = "ALLOW_ALL" # доступ закрыт IAM (нужен OIDC-токен), allUsers не выдаём
+    available_memory = "256M"
+    timeout_seconds = 60
+    min_instance_count = 0
+    max_instance_count = 2
+    ingress_settings = "ALLOW_ALL" # google_cloud_run_v2_service_iam_member will get OIDC-token
     service_account_email = google_service_account.function.email
 
     environment_variables = {
-      GCP_PROJECT       = var.project_id
-      DATA_BUCKET       = google_storage_bucket.data.name
+      GCP_PROJECT = var.project_id
+      DATA_BUCKET = google_storage_bucket.data.name
       API_KEY_SECRET_ID = google_secret_manager_secret.api_key.secret_id
-      LOCATIONS         = join(",", var.locations)
+      LOCATIONS = join(",", var.locations)
     }
   }
 

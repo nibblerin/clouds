@@ -1,3 +1,4 @@
+#the value of the key won't leak to the state
 resource "google_secret_manager_secret" "api_key" {
   secret_id = var.api_key_secret_id
   labels    = local.labels

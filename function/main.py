@@ -1,4 +1,3 @@
-"""Cloud Function Gen2 (HTTP): Tomorrow.io realtime -> GCS bronze (raw JSON as is)."""
 import json
 import logging
 import os
@@ -31,7 +30,6 @@ def _get_api_key() -> str:
     return _api_key
 
 def _ingest(location: str, bucket, now: datetime) -> str:
-    # Ключ передаём в заголовке, чтобы он не попадал в URL/текст исключений/логи.
     resp = requests.get(
         API_URL,
         params={"location": location, "units": "metric"},
@@ -47,10 +45,13 @@ def _ingest(location: str, bucket, now: datetime) -> str:
     bucket.blob(object_name).upload_from_string(resp.content, content_type="application/json")
     return f"gs://{bucket.name}/{object_name}"
 
+#functions_framework позволяет объявить Python-функцию как HTTP-обработчик для Cloud Functions
 @functions_framework.http
 def fetch_weather(request):
     configured = [x.strip() for x in os.environ["LOCATIONS"].split(",") if x.strip()]
     requested = request.args.get("location")
+    # either fetch a single configured location or all of them
+    # unknown locations are rejected with 400.
     if requested:
         if requested not in configured:
             return (json.dumps({"error": "location not configured"}), 400)
@@ -68,7 +69,7 @@ def fetch_weather(request):
         except requests.HTTPError as exc:
             logging.error("API error for %s: status=%s", loc, exc.response.status_code)
             failed.append(loc)
-        except Exception as exc:  # не логируем str(exc): там может быть чувствительное
+        except Exception as exc:  # exc can be sensitive
             logging.error("Failure for %s: %s", loc, type(exc).__name__)
             failed.append(loc)
 

@@ -1,6 +1,13 @@
-from __future__ import annotations
 import math
+import csv
+import io
 from datetime import datetime, timezone
+from airflow.sdk.exceptions import AirflowFailException
+from airflow.providers.google.cloud.hooks.gcs import GCSHook
+
+from weather_silver_processing.config import (
+    BRONZE_ROOT, BUCKET, COLUMNS,
+)
 
 RANGES = {
     "temperature": (-90, 70),
@@ -10,17 +17,14 @@ RANGES = {
     "precipitationProbability": (0, 100),
 }
 
-
 def _is_number(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
-
 
 def _parse_ts(value) -> datetime:
     if not isinstance(value, str) or not value:
         raise ValueError("time is missing or not a string")
     dt = datetime.fromisoformat(value) 
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
-
 
 def validate_payload(payload):
     if not isinstance(payload, dict):
@@ -68,3 +72,37 @@ def validate_payload(payload):
         "location_type": location.get("type") if isinstance(location.get("type"), str) else None,
         "weather": weather,
     }, None
+
+def fmt_ts(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%d %H:%M:%S UTC")
+
+def discover_locations(hook: GCSHook) -> list[str]:
+    iterator = hook.get_conn().bucket(BUCKET).list_blobs(
+        prefix=f"{BRONZE_ROOT}/", delimiter="/"
+    )
+    list(iterator)  
+    return sorted(p.rstrip("/").rsplit("/", 1)[-1] for p in iterator.prefixes)
+
+def normalize_source_path(source_path: str) -> str:
+    p = source_path.strip()
+    if p.startswith("gs://"):
+        bucket, _, prefix = p[5:].partition("/")
+        if bucket != BUCKET:
+            raise AirflowFailException(f"source_path bucket {bucket!r} != {BUCKET!r}")
+        p = prefix
+    return p.lstrip("/")
+
+def _fmt_value(key, v):
+    if v is None:
+        return ""
+    if isinstance(v, float) and key.startswith("weather_"):
+        return f"{v:.2f}"
+    return v
+
+def rows_to_csv(rows: list[dict]) -> str:
+    buf = io.StringIO() #csv does not spill into temporary files on disk, for large data - tempfile
+    writer = csv.DictWriter(buf, fieldnames=COLUMNS, lineterminator="\n")
+    writer.writeheader()
+    for r in rows:
+        writer.writerow({k: _fmt_value(k, r[k]) for k in COLUMNS})
+    return buf.getvalue()

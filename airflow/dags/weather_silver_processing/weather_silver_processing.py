@@ -38,6 +38,7 @@ def process_bronze_to_silver(**context):
         prefixes = [f"{BRONZE_ROOT}/{loc}/{prev:%Y/%m/%d/%H}/" for loc in locations]
     log.info("Source prefixes: %s", prefixes)
 
+    #Input files exist: there must be at least one .json file in the target GCS prefix; otherwise, fail.
     objects = []
     for prefix in prefixes:
         objects += [o for o in hook.list(BUCKET, prefix=prefix) if o.endswith(".json")]
@@ -46,7 +47,7 @@ def process_bronze_to_silver(**context):
     log.info("Found %d JSON files", len(objects))
 
     ingested_at = fmt_ts(run_ts)
-    #Deduplication before output
+    #Deduplication before output (beginning)
     seen, valid, rejected = set(), [], []
 #Read all JSON files under source prefix
     for obj in sorted(objects):
@@ -69,7 +70,7 @@ def process_bronze_to_silver(**context):
             log.warning("Dropping %s: %s", source, err)
             rejected.append({"source_object": source, "error": err})
             continue
-
+        #Deduplication before output: key: (location_name, time) duplicates must be removed
         key = (rec["location_name"], rec["event_time"])
         if key in seen:
             log.warning("Duplicate %s dropped (%s)", key, source)
@@ -97,7 +98,6 @@ def process_bronze_to_silver(**context):
                     mime_type="application/x-ndjson")
         log.warning("%d rejected records saved to gs://%s/%s", len(rejected), BUCKET, rej_obj)
 #Final output check:if no valid records remain after validation, fail the DAG.
-
     if not valid:
         raise AirflowFailException("No valid records remain after validation")
 #Load data to .csv file into silver layer 

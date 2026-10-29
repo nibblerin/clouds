@@ -45,7 +45,7 @@ def _ingest(location: str, bucket, now: datetime) -> str:
     bucket.blob(object_name).upload_from_string(resp.content, content_type="application/json")
     return f"gs://{bucket.name}/{object_name}"
 
-#functions_framework позволяет объявить Python-функцию как HTTP-обработчик для Cloud Functions
+#functions_framework turns Python-function into HTTP-processor for Cloud Functions
 @functions_framework.http
 def fetch_weather(request):
     configured = [x.strip() for x in os.environ["LOCATIONS"].split(",") if x.strip()]

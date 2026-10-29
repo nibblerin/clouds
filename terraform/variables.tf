@@ -54,7 +54,7 @@ variable "owner" {
 variable "locations" {
   description = "Locations passed to Tomorrow.io (used as-is for the API and slugified for GCS paths)"
   type        = list(string)
-  default     = ["warsaw"]
+  default     = ["warsaw", "berlin"]
   validation {
     condition     = length(var.locations) > 0
     error_message = "Provide at least one location."

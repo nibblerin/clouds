@@ -1,8 +1,10 @@
+
+## For  29.10.2026
 ## GSC job runs successfully
 ![](images/image1.png)
 ## bucket(s) was created and data is uploaded
 ![](images/image2.png)
-## Airflow DAG is shown up correctly
+## Airflow DAG is shown up correctly (the screen was made before i triggered the current run, just to prove it exists, screenshots below demonstrate the run time at the correct (29.10.2026) date)
 ![](images/image3.png)
 ##  DAG runs successfully
 ![](images/image4.png)
@@ -16,3 +18,7 @@
 ![](images/image8.png)
 Those was an example with a mannual trigger without source path for one city. It also works for one city with the source input (here i provided it for some data i retrieved before). You can see it's a success (the source path is provided as demonstrated at the bottom in confs)
 ![](images/image9.png)
+## then i added annother city berlin , and the pipekline still works (silver appeared after the successful run of the dag)
+![](images/image10.png)
+## info about berlin appeared in golden layer too
+![](images/image11.png)
